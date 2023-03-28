@@ -1,0 +1,31 @@
+#include <iostream>
+#include <ctime>
+#include <cstdlib>
+#include <string>
+
+std::string generateRandomPassword(int length) {
+    const std::string charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,./?!@#$%^&*()_+-=[]{};:<>";
+    std::string password = "";
+    int charsetSize = static_cast<int>(charset.size());
+
+    for (int i = 0; i < length; i++) {
+        int randomIndex = rand() % charsetSize;
+        password += charset[randomIndex];
+    }
+
+    return password;
+}
+
+int main() {
+    // Seed the random number generator with the current time
+    srand(static_cast<unsigned>(time(0)));
+
+    // Generate a 20-character long random password
+    int passwordLength = 30;
+    std::string password = generateRandomPassword(passwordLength);
+
+    std::cout << "Generated Password: " << password << std::endl;
+
+    return 0;
+}
+
