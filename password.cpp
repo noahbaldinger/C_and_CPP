@@ -3,10 +3,12 @@
 #include <iostream>
 #include <string>
 
-std::string generateRandomPassword(int length) {
-  const std::string charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV"
+using namespace std;
+
+string generateRandomPassword(int length) {
+  const string charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUV"
                               "WXYZ0123456789,./?!@#$%^&*()_+-=[]{};:<>";
-  std::string password = "";
+  string password = "";
   int charsetSize = static_cast<int>(charset.size());
 
   for (int i = 0; i < length; i++) {
@@ -23,9 +25,9 @@ int main() {
 
   // Generate a 20-character long random password
   int passwordLength = 30;
-  std::string password = generateRandomPassword(passwordLength);
+  string password = generateRandomPassword(passwordLength);
 
-  std::cout << "This is your new Password: " << std::endl << password << std::endl << "Do you like it?";
+  cout << "This is your new Password: " << endl << password << endl << "Do you like it?";
 
   return 0;
 }
