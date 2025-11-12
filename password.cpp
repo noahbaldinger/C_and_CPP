@@ -19,15 +19,41 @@ string generateRandomPassword(int length) {
   return password;
 }
 
+
+bool IsGoodPassword(const string& password) {
+    if (password.length() < 8)
+        return false;
+
+    bool hasUpper = false, hasLower = false, hasDigit = false, hasSpecial = false;
+    string specials = "!@#$%^&*()-_=+[]{};:,.<>?/";
+
+    for (char ch : password) {
+        if (isupper(ch))
+            hasUpper = true;
+        else if (islower(ch))
+            hasLower = true;
+        else if (isdigit(ch))
+            hasDigit = true;
+        else if (specials.find(ch) != string::npos)
+            hasSpecial = true;
+    }
+
+    return hasUpper && hasLower && hasDigit && hasSpecial;
+}
+
 int main() {
   // Seed the random number generator with the current time
   srand(static_cast<unsigned>(time(0)));
 
   // Generate a 20-character long random password
-  int passwordLength = 30;
-  string password = generateRandomPassword(passwordLength);
+  int passwordLength;
+  cout << "Choose your passwords length: ";
+  cin >> passwordLength;
+  
+  string password;
+  password = generateRandomPassword(passwordLength);
 
-  cout << "This is your new Password: " << endl << password << endl << "Do you like it?";
+  cout << "This is your new Password: " << endl << password;
 
   return 0;
 }
