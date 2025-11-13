@@ -1,0 +1,12 @@
+{
+  "editor.fontSize": 16,
+  "files.autoSave": "afterDelay",
+  "editor.fontFamily": "Jetbrains Mono ",
+  "explorer.excludeGitIgnore": true,
+  "files.exclude": {
+    "*.out": true
+  },
+  "editor.tabSize": 4,
+  "editor.formatOnPaste": true,
+  "editor.suggest.showFolders": true
+}
