@@ -43,7 +43,8 @@ void saveTasks() {
     }
 
     file.close();
-    cout << "Tasks saved successfully.\n";
+    system("clear");
+    cout << "Saved " << Tasks.size() << " tasks.\n";
 }
 
 // Start menu
@@ -62,15 +63,18 @@ int startMenu() {
 // add task
 void addTask() {
     string addedTask;
+    system("clear");
     cout << "Enter task: ";
     getline(cin, addedTask);
     Tasks.push_back(addedTask);
     saveTasks();
+    system("clear");
     cout << "Task added!\n";
 }
 
 // remove task
 void removeTask() {
+    system("clear");
     if (Tasks.empty()) {
         cout << "No tasks to remove.\n";
         return;
@@ -92,19 +96,25 @@ void removeTask() {
 
     Tasks.erase(Tasks.begin() + index - 1);
     saveTasks();
+    system("clear");
     cout << "Task removed!\n";
 }
 
 // list tasks
 void listTasks() {
     if (Tasks.empty()) {
+        system("clear");
         cout << "No tasks available.\n";
         return;
     }
+    system("clear");
     cout << "Your tasks:\n";
     for (int i = 0; i < Tasks.size(); i++) {
         cout << i + 1 << ". " << Tasks[i] << "\n";
     }
+    string a;
+    getline(cin, a);
+    system("clear");
 }
 
 int main() {
@@ -124,7 +134,6 @@ int main() {
                 listTasks();
                 break;
             case 4:
-                cout << "Goodbye!\n";
                 saveTasks();
                 return 0;
             default:
