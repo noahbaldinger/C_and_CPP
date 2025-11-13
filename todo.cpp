@@ -55,6 +55,7 @@ int startMenu() {
     cout << "2. Remove a task\n";
     cout << "3. List all tasks\n";
     cout << "4. Exit\n";
+    cout << "Choose an option: ";
     cin >> choice;
     cin.ignore();
     return choice;
