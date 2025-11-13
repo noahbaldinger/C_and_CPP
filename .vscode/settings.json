@@ -7,6 +7,6 @@
     "*.out": true
   },
   "editor.tabSize": 4,
-  "editor.formatOnPaste": true,
+  "editor.formatOnPaste": false,
   "editor.suggest.showFolders": true
 }
