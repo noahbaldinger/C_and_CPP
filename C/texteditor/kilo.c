@@ -22,7 +22,7 @@
 
 #define CTRL_KEY(k) ((k) & 0x1f)
 #define KILO_VERSION "0.0.1"
-#define KILO_TAB_STOP 4
+#define KILO_TAB_STOP 2
 #define KILO_QUIT_TIMES 3
 
 enum editorKey {
