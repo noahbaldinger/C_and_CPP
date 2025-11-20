@@ -145,6 +145,7 @@ void die(const char *s) {
 
 
 void disableRawMode() {
+  write(STDOUT_FILENO, "\x1b[0 q", 4);
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &E.orig_termios) == -1)
     die("tcsetattr");
 }
@@ -936,8 +937,9 @@ void editorMoveCursor(int key) {
 
 /* --- Insert-Mode --- */
 void processInsertMode(int c) {
-  if (c == '\x1b') { /* ESC -> Normal */
+  if (c == '\x1b') { 
     E.mode = MODE_NORMAL;
+    write(STDOUT_FILENO, "\x1b[1 q", 4);
     return;
   }
   switch (c) {
@@ -946,12 +948,13 @@ void processInsertMode(int c) {
     case ARROW_RIGHT:
     case ARROW_UP:
       editorMoveCursor(c);
+      return;
     default:
       if (!iscntrl(c) && c < 128) editorInsertChar(c);
       else {
         /* handle newline, backspace etc. */
         if (c == '\r') editorInsertNewline();
-        else if (c == DEL_KEY || c == CTRL_KEY('h') || c == 127) {
+        else if (c == DEL_KEY || c == 127) {
           if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
           editorDelChar();
         }
@@ -962,9 +965,25 @@ void processInsertMode(int c) {
 
 /* --- Normal-Mode --- */
 void processNormalMode(int c) {
+  static int d_count = 0;
   switch (c) {
-    case 'i': E.mode = MODE_INSERT; return;
-    case 'a': editorMoveCursor(ARROW_RIGHT); E.mode = MODE_INSERT; return;
+    case 'd': if (d_count == 1) {
+      editorDelRow(E.cy);
+      return;
+    } else {
+      d_count++;
+      return;
+    };
+    case 'i': 
+      E.mode = MODE_INSERT; 
+      write(STDOUT_FILENO, "\x1b[5 q", 4); // <--- ADDED: Switch to I-Beam
+      break;
+
+    case 'a': 
+      editorMoveCursor(ARROW_RIGHT); 
+      E.mode = MODE_INSERT; 
+      write(STDOUT_FILENO, "\x1b[5 q", 4); // <--- ADDED: Switch to I-Beam
+      break;
     case 'h': editorMoveCursor(ARROW_LEFT); return;
     case 'j': editorMoveCursor(ARROW_DOWN); return;
     case 'k': editorMoveCursor(ARROW_UP); return;
@@ -972,7 +991,7 @@ void processNormalMode(int c) {
     case 'x': editorDelChar(); return;
     case ':': E.mode = MODE_COMMAND; return;
     case '/': editorFind(); return;
-    case CTRL_KEY('s'): editorSave(); return;
+    case CTRL_KEY('w'): editorSave(); return;
     case CTRL_KEY('q'):
       /* dein bestehendes quit-Verhalten übernehmen */
       if (E.dirty) {
@@ -994,12 +1013,31 @@ void processNormalMode(int c) {
 void processCommandMode(int c) {
   static char cmd[64];
   static int cmdlen = 0;
-
+  
   if (c == '\x1b') { /* ESC -> abbrechen */
     cmdlen = 0;
+    editorSetStatusMessage("");
     E.mode = MODE_NORMAL;
+    write(STDOUT_FILENO, "\x1b[1 q", 4);
     return;
   }
+
+  if (c == DEL_KEY || c == CTRL_KEY('h') || c == 127) {
+    if (cmdlen > 0) {
+      cmdlen--;
+      cmd[cmdlen] = '\0';
+      editorSetStatusMessage(":%s", cmd);
+      editorRefreshScreen(); // Immediately update the status bar to show the deletion
+    } else {
+      // If cmdlen is 0, treat backspace as ESC to exit command mode
+      cmdlen = 0;
+      editorSetStatusMessage(""); 
+      E.mode = MODE_NORMAL;
+      write(STDOUT_FILENO, "\x1b[1 q", 4); 
+    }
+    return;
+  }
+  
   if (c == '\r') {
     cmd[cmdlen] = '\0';
     if (strcmp(cmd, "q") == 0)  { 
@@ -1056,6 +1094,8 @@ void initEditor() {
   E.statusmsg_time = 0;
   E.syntax = NULL;
   E.mode = MODE_NORMAL;
+
+  write(STDOUT_FILENO, "\x1b[1 q", 4);
   
   if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
   E.screenrows -= 2;
