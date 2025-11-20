@@ -939,7 +939,7 @@ void editorMoveCursor(int key) {
 void processInsertMode(int c) {
   if (c == '\x1b') { 
     E.mode = MODE_NORMAL;
-    write(STDOUT_FILENO, "\x1b[1 q", 4);
+    write(STDOUT_FILENO, "\x1b[2 q", 4);
     return;
   }
   switch (c) {
@@ -976,13 +976,12 @@ void processNormalMode(int c) {
     };
     case 'i': 
       E.mode = MODE_INSERT; 
-      write(STDOUT_FILENO, "\x1b[5 q", 4); // <--- ADDED: Switch to I-Beam
+      write(STDOUT_FILENO, "\x1b[6 q", 4); // <--- ADDED: Switch to I-Beam
       break;
-
     case 'a': 
       editorMoveCursor(ARROW_RIGHT); 
       E.mode = MODE_INSERT; 
-      write(STDOUT_FILENO, "\x1b[5 q", 4); // <--- ADDED: Switch to I-Beam
+      write(STDOUT_FILENO, "\x1b[6 q", 4); // <--- ADDED: Switch to I-Beam
       break;
     case 'h': editorMoveCursor(ARROW_LEFT); return;
     case 'j': editorMoveCursor(ARROW_DOWN); return;
@@ -1095,7 +1094,7 @@ void initEditor() {
   E.syntax = NULL;
   E.mode = MODE_NORMAL;
 
-  write(STDOUT_FILENO, "\x1b[1 q", 4);
+  write(STDOUT_FILENO, "\x1b[2 q", 4);
   
   if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
   E.screenrows -= 2;
@@ -1107,7 +1106,7 @@ int main(int argc, char *argv[]) {
     editorOpen(argv[1]);
   }
 
-  editorSetStatusMessage("HELP: Ctrl-S = save | Ctrl-Q = quit | Ctrl-F = find");
+  editorSetStatusMessage("HELP: Ctrl-W = save | Ctrl-Q = quit | Ctrl-F = find");
 
   while (1) {
     editorRefreshScreen();
