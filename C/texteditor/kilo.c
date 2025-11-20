@@ -21,7 +21,7 @@
 
 
 #define CTRL_KEY(k) ((k) & 0x1f)
-#define KILO_VERSION "0.0.1"
+#define KILO_VERSION "0.0.2"
 #define KILO_TAB_STOP 2
 #define KILO_QUIT_TIMES 3
 
@@ -47,6 +47,12 @@ enum editorHighlight {
   HL_STRING,
   HL_NUMBER,
   HL_MATCH
+};
+
+enum editorMode {
+  MODE_NORMAL,
+  MODE_INSERT,
+  MODE_COMMAND
 };
 
 #define HL_HIGHLIGHT_NUMBERS (1<<0)
@@ -91,6 +97,7 @@ struct editorConfig {
   time_t statusmsg_time;
   struct editorSyntax *syntax;
   struct termios orig_termios;
+  enum editorMode mode;
 };
 
 struct editorConfig E;
@@ -785,7 +792,15 @@ void editorDrawRows(struct abuf *ab) {
 void editorDrawStatusBar(struct abuf *ab) {
   abAppend(ab, "\x1b[7m", 4);
   char status[80], rstatus[80];
-  int len = snprintf(status, sizeof(status), "%.20s - %d lines %s",
+  char *mode;
+  switch (E.mode) {
+    case MODE_INSERT:  mode = "-- INSERT --"; break;
+    case MODE_COMMAND: mode = "-- COMMAND --"; break;
+    default:            mode = "-- NORMAL --"; break;
+  }
+
+  int len = snprintf(status, sizeof(status), "%.20s %.20s - %d lines %s",
+    mode,
     E.filename ? E.filename : "[No Name]", E.numrows,
     E.dirty ? "(modified)" : "");
   int rlen = snprintf(rstatus, sizeof(rstatus), "%s | %d/%d",
@@ -919,74 +934,106 @@ void editorMoveCursor(int key) {
   }
 }
 
-void editorProcessKeypress() {
-  static int quit_times = KILO_QUIT_TIMES;
-  int c = editorReadKey();
+/* --- Insert-Mode --- */
+void processInsertMode(int c) {
+  if (c == '\x1b') { /* ESC -> Normal */
+    E.mode = MODE_NORMAL;
+    return;
+  }
   switch (c) {
-    case '\r':
-      editorInsertNewline();
-      break;
+    case CTRL_KEY('s'):
+      editorSave();
+      return;
+    default:
+      if (!iscntrl(c) && c < 128) editorInsertChar(c);
+      else {
+        /* handle newline, backspace etc. */
+        if (c == '\r') editorInsertNewline();
+        else if (c == DEL_KEY || c == CTRL_KEY('h') || c == 127) {
+          if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
+          editorDelChar();
+        }
+      }
+      return;
+  }
+}
+
+/* --- Normal-Mode --- */
+void processNormalMode(int c) {
+  switch (c) {
+    case 'i': E.mode = MODE_INSERT; return;
+    case 'a': editorMoveCursor(ARROW_RIGHT); E.mode = MODE_INSERT; return;
+    case 'h': editorMoveCursor(ARROW_LEFT); return;
+    case 'j': editorMoveCursor(ARROW_DOWN); return;
+    case 'k': editorMoveCursor(ARROW_UP); return;
+    case 'l': editorMoveCursor(ARROW_RIGHT); return;
+    case 'x': editorDelChar(); return;
+    case ':': E.mode = MODE_COMMAND; return;
+    case '/': editorFind(); return;
+    case CTRL_KEY('s'): editorSave(); return;
     case CTRL_KEY('q'):
-      if (E.dirty && quit_times > 0) {
-        editorSetStatusMessage("WARNING!!! File has unsaved changes. "
-          "Press Ctrl-Q %d more times to quit.", quit_times);
-        quit_times--;
+      /* dein bestehendes quit-Verhalten übernehmen */
+      if (E.dirty) {
+        editorSetStatusMessage("WARNING!!! File has unsaved changes.");
         return;
       }
       write(STDOUT_FILENO, "\x1b[2J", 4);
       write(STDOUT_FILENO, "\x1b[H", 3);
       exit(0);
-      break;
-    case CTRL_KEY('s'):
-      editorSave();
-      break;
-    case HOME_KEY:
-      E.cx = 0;
-      break;
-    case END_KEY:
-      if (E.cy < E.numrows)
-        E.cx = E.row[E.cy].size;
-      break;
-
-    case CTRL_KEY('f'):
-      editorFind();
-      break;
-
-    case BACKSPACE:
-    case CTRL_KEY('h'):
-    case DEL_KEY:
-      if (c == DEL_KEY) editorMoveCursor(ARROW_RIGHT);
-      editorDelChar();
-      break;
-
-    case PAGE_UP:
-    case PAGE_DOWN:
-      {
-        if (c == PAGE_UP) {
-          E.cy = E.rowoff;
-        } else if (c == PAGE_DOWN) {
-          E.cy = E.rowoff + E.screenrows - 1;
-          if (E.cy > E.numrows) E.cy = E.numrows;
-        }
-        int times = E.screenrows;
-        while (times--)
-          editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
-      }
-      break;
-    case ARROW_UP:
-    case ARROW_DOWN:
-    case ARROW_LEFT:
-    case ARROW_RIGHT:
-      editorMoveCursor(c);
-      break;
-    case CTRL_KEY('l'):
-    case '\x1b':
-      break;
     default:
-      editorInsertChar(c);
-      break;
+      /* evtl Pfeiltasten/Macros weiterleiten */
+      if (c == ARROW_UP || c == ARROW_DOWN || c == ARROW_LEFT || c == ARROW_RIGHT)
+        editorMoveCursor(c);
+      return;
   }
-  quit_times = KILO_QUIT_TIMES;
+}
+
+/* --- Command-Mode (einfaches Beispiel) --- */
+void processCommandMode(int c) {
+  static char cmd[64];
+  static int cmdlen = 0;
+
+  if (c == '\x1b') { /* ESC -> abbrechen */
+    cmdlen = 0;
+    E.mode = MODE_NORMAL;
+    return;
+  }
+  if (c == '\r') {
+    cmd[cmdlen] = '\0';
+    if (strcmp(cmd, "q") == 0)  { 
+      write(STDOUT_FILENO, "\x1b[2J", 4); 
+      write(STDOUT_FILENO, "\x1b[H", 3); 
+      exit(0);  
+    }
+    
+    if (strcmp(cmd, "w") == 0) editorSave();
+
+    if (strcmp(cmd, "wq") == 0) { 
+      write(STDOUT_FILENO, "\x1b[2J", 4); 
+      write(STDOUT_FILENO, "\x1b[H", 3); 
+      editorSave(); 
+      exit(0); 
+    }
+    cmdlen = 0;
+    E.mode = MODE_NORMAL;
+    return;
+  }
+  if (!iscntrl(c) && cmdlen < (int)sizeof(cmd)-1) {
+    cmd[cmdlen++] = c;
+    /* optional: in Statusbar echoen */
+    editorSetStatusMessage(":%s", cmd);
+  }
+}
+
+void editorProcessKeypress() {
+  int c = editorReadKey();
+  if (E.mode == MODE_INSERT) {
+    processInsertMode(c);
+  } else if (E.mode == MODE_COMMAND) {
+    processCommandMode(c);
+  } else {
+    processNormalMode(c);
+  }
 }
 
 
@@ -1006,6 +1053,7 @@ void initEditor() {
   E.statusmsg[0] = '\0';
   E.statusmsg_time = 0;
   E.syntax = NULL;
+  E.mode = MODE_NORMAL;
   
   if (getWindowSize(&E.screenrows, &E.screencols) == -1) die("getWindowSize");
   E.screenrows -= 2;
